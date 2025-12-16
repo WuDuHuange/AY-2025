@@ -1,0 +1,190 @@
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+    <h2>Deposit Money</h2>
+    <p id="wallet_note">Wallet is used to pay gas for on-chain transactions.</p>
+    <button class="btn" id="connectWalletBtn" onclick="connectWallet()">Connect Wallet</button>
+    <p id="walletStatus">Not connected</p>
+    <p id="networkStatus"></p>
+
+    <input type="text" id="depositor" placeholder="Depositor Address">
+    <input type="number" id="amount" placeholder="Amount">
+    <button class="btn" id="depositBtn" onclick="deposit()">Deposit Money</button>
+    <button class="btn" id="viewBtn" onclick="view_transaction()">View Transaction</button>
+
+    <form action="/main" method="post">
+        <input type="submit" value="Main">
+    </form>
+
+    <!-- Result and status cards -->
+    <div id="txResultCard" class="result-card" style="display:none;">
+        <h3>Deposit Result</h3>
+        <div class="result-row"><span class="label">Depositor:</span><span id="view_depositor" class="value"></span></div>
+        <div class="result-row"><span class="label">Amount:</span><span id="view_amount" class="value"></span></div>
+    </div>
+
+    <div id="txStatusCard" class="status-card" style="display:none;">
+        <p id="txStatus" class="status-text"></p>
+        <p id="txHash" class="hash-text"></p>
+    </div>
+
+    <p id="errorMsg" class="error-msg"></p>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script>
+    // TODO: replace with your deployed contract address and ABI
+    const contractAddress = "0xe784ad6771df0516ad56a69f6539e23b1b580f1f"; // e.g. 0x...
+    const contractABI = [
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "customer_input",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount_input",
+				"type": "uint256"
+			}
+		],
+		"name": "deposit_money",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "deposit_view",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]; // paste ABI array here
+
+    const web3 = new Web3(Web3.givenProvider);
+    const contract = new web3.eth.Contract(contractABI, contractAddress);
+    let currentAccount = null;
+
+    async function connectWallet() {
+        try {
+            const accounts = await web3.eth.requestAccounts();
+            if (accounts && accounts.length > 0) {
+                currentAccount = accounts[0];
+                document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+                const chainId = await web3.eth.getChainId();
+                document.getElementById('networkStatus').innerText = 'Network ID: ' + chainId;
+                document.getElementById('connectWalletBtn').innerText = 'Connected';
+                document.getElementById('connectWalletBtn').disabled = true;
+            }
+        } catch (err) {
+            document.getElementById('errorMsg').innerText = 'Wallet connection failed: ' + (err.message || err);
+        }
+    }
+
+
+    // Check wallet connection on page load and listen for account/network changes
+    async function checkWalletConnectedOnLoad() {
+        try {
+            const accounts = await web3.eth.getAccounts();
+            if (accounts && accounts.length > 0) {
+                currentAccount = accounts[0];
+                document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+                const chainId = await web3.eth.getChainId();
+                document.getElementById('networkStatus').innerText = 'Network ID: ' + chainId;
+                document.getElementById('connectWalletBtn').innerText = 'Connected';
+                document.getElementById('connectWalletBtn').disabled = true;
+            }
+        } catch (err) {
+            // ignore
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('load', async () => {
+            if (window.ethereum) {
+                await checkWalletConnectedOnLoad();
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts && accounts.length > 0) {
+                        currentAccount = accounts[0];
+                        document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+                        document.getElementById('connectWalletBtn').innerText = 'Connected';
+                        document.getElementById('connectWalletBtn').disabled = true;
+                    } else {
+                        currentAccount = null;
+                        document.getElementById('walletStatus').innerText = 'Not connected';
+                        document.getElementById('connectWalletBtn').innerText = 'Connect Wallet';
+                        document.getElementById('connectWalletBtn').disabled = false;
+                    }
+                });
+                window.ethereum.on('chainChanged', (chainId) => {
+                    document.getElementById('networkStatus').innerText = 'Network ID: ' + Number(chainId);
+                });
+            }
+        });
+    }
+
+    async function deposit() {
+        document.getElementById('errorMsg').innerText = '';
+        const depositor = document.getElementById('depositor').value.trim();
+        const amount = document.getElementById('amount').value;
+
+        // validation
+        if (!web3.utils.isAddress(depositor)) { document.getElementById('errorMsg').innerText = 'Invalid depositor address'; return; }
+        if (!amount || Number(amount) <= 0) { document.getElementById('errorMsg').innerText = 'Amount must be greater than 0'; return; }
+
+        try {
+            let accounts = await web3.eth.getAccounts();
+            if (!accounts || accounts.length === 0) accounts = await web3.eth.requestAccounts();
+            if (!accounts || accounts.length === 0) { document.getElementById('errorMsg').innerText = 'Please connect a wallet to send the transaction.'; return; }
+
+            const from = accounts[0];
+            const btn = document.getElementById('depositBtn');
+            btn.disabled = true;
+            document.getElementById('txStatusCard').style.display = 'block';
+            document.getElementById('txStatus').innerText = '⏳ Sending deposit...';
+            document.getElementById('txStatus').className = 'status-text pending';
+            document.getElementById('txHash').innerText = '';
+
+            const tx = await contract.methods.deposit_money(depositor, amount).send({ from });
+            document.getElementById('txHash').innerText = tx.transactionHash || tx.tx || tx;
+            document.getElementById('txStatus').innerText = '✓ Deposit confirmed';
+            document.getElementById('txStatus').className = 'status-text success';
+            document.getElementById('txResultCard').style.display = 'block';
+            document.getElementById('view_depositor').innerText = depositor;
+            document.getElementById('view_amount').innerText = amount;
+            btn.disabled = false;
+        } catch (err) {
+            document.getElementById('errorMsg').innerText = 'Transaction failed: ' + (err.message || err);
+            document.getElementById('txStatus').innerText = '';
+            document.getElementById('depositBtn').disabled = false;
+        }
+    }
+
+    async function view_transaction() {
+        try {
+            const result = await contract.methods.deposit_view().call();
+            document.getElementById('view_depositor').innerText = result[0];
+            document.getElementById('view_amount').innerText = result[1];
+            document.getElementById('txResultCard').style.display = 'block';
+        } catch (err) {
+            document.getElementById('errorMsg').innerText = 'Read failed: ' + (err.message || err);
+        }
+    }
+    </script>
+    </div>
+</body>

@@ -78,6 +78,117 @@ p {
     color: #007bff;
 }
 
+/* 为模板中的链接按钮提供样式（用于 .btn 类的 <a> 元素） */
+a.btn {
+    display: inline-block;
+    background-color: #007bff;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 18px;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+    margin: 10px auto;
+    text-align: center;
+}
+a.btn:hover {
+    background-color: #0056b3;
+}
+
+/* submit 按钮 hover 效果 */
+input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Transaction Result Card */
+.result-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 20px;
+    text-align: left;
+}
+.result-card h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 8px;
+}
+.result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed #e9ecef;
+}
+.result-row:last-child {
+    border-bottom: none;
+}
+.result-row .label {
+    color: #6c757d;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+.result-row .value {
+    color: #212529;
+    word-break: break-all;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* TX Status Card */
+.status-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.status-text {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+.status-text.pending {
+    color: #f39c12;
+}
+.status-text.success {
+    color: #27ae60;
+}
+.hash-text {
+    margin: 0;
+    font-size: 11px;
+    color: #6c757d;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+/* Error Message */
+.error-msg {
+    color: #c0392b;
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 14px;
+    font-size: 14px;
+    display: none;
+}
+.error-msg:not(:empty) {
+    display: block;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 20px;

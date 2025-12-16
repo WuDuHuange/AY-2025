@@ -5,21 +5,40 @@
 <body>
     <div class="container">
     <h2>Transfer Money</h2>
-    <input type="text" id="payer" placeholder="Enter payer address">
-    <input type="text" id="payee" placeholder="Enter payee address">
-    <input type="number" id="amount" placeholder="Enter amount to transfer">
-    <button class="btn" onclick="transfer()">Transfer</button>
-    <button class="btn" onclick="view_transaction()">Transaction</button>
+	<p id="wallet_note">Wallet is used to pay gas for on-chain transactions.</p>
+	<button class="btn" id="connectWalletBtn" onclick="connectWallet()">Connect Wallet</button>
+	<p id="walletStatus">Not connected</p>
+	<p id="networkStatus"></p>
+
+	<input type="text" id="payer" placeholder="Enter payer address">
+	<input type="text" id="payee" placeholder="Enter payee address">
+	<input type="number" id="amount" placeholder="Enter amount to transfer">
+	<button class="btn" id="transferBtn" onclick="transfer()">Transfer</button>
+	<button class="btn" id="viewBtn" onclick="view_transaction()">View Transaction</button>
 
     <form action="/main" method="post">
         <input type="submit" value="Main">
     </form>
-    <p id="view_payer"></p>
-    <p id="view_payee"></p>
-    <p id="view_amount"></p>
+
+    <!-- Transaction Result Card -->
+    <div id="txResultCard" class="result-card" style="display:none;">
+        <h3>Transaction Result</h3>
+        <div class="result-row"><span class="label">Payer:</span><span id="view_payer" class="value"></span></div>
+        <div class="result-row"><span class="label">Payee:</span><span id="view_payee" class="value"></span></div>
+        <div class="result-row"><span class="label">Amount:</span><span id="view_amount" class="value"></span></div>
+    </div>
+
+    <!-- TX Status Card -->
+    <div id="txStatusCard" class="status-card" style="display:none;">
+        <p id="txStatus" class="status-text"></p>
+        <p id="txHash" class="hash-text"></p>
+    </div>
+
+    <!-- Error Message -->
+    <p id="errorMsg" class="error-msg"></p>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
         <script>
-        const contractAddress = "0xf17dc1990f0ab755f31d36da748a60c480764227";
+        const contractAddress = "0x9377791ec7fdccced33bd07d07f522ab32d1092c";
         const contractABI = [
 	{
 		"inputs": [
@@ -70,33 +89,118 @@
 ];
         const web3 = new Web3(Web3.givenProvider);
         const contract = new web3.eth.Contract(contractABI, contractAddress);
+		let currentAccount = null;
+
+		async function connectWallet() {
+			try {
+				const accounts = await web3.eth.requestAccounts();
+				if (accounts && accounts.length > 0) {
+					currentAccount = accounts[0];
+					document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+					const chainId = await web3.eth.getChainId();
+					document.getElementById('networkStatus').innerText = 'Network ID: ' + chainId;
+					document.getElementById('connectWalletBtn').innerText = 'Connected';
+					document.getElementById('connectWalletBtn').disabled = true;
+				}
+			} catch (err) {
+				document.getElementById('errorMsg').innerText = 'Wallet connection failed: ' + (err.message || err);
+			}
+		}
+
+		// Check wallet connection on page load and listen for account/network changes
+		async function checkWalletConnectedOnLoad() {
+			try {
+				const accounts = await web3.eth.getAccounts();
+				if (accounts && accounts.length > 0) {
+					currentAccount = accounts[0];
+					document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+					const chainId = await web3.eth.getChainId();
+					document.getElementById('networkStatus').innerText = 'Network ID: ' + chainId;
+					document.getElementById('connectWalletBtn').innerText = 'Connected';
+					document.getElementById('connectWalletBtn').disabled = true;
+				}
+			} catch (err) {
+				// ignore silently
+			}
+		}
+
+		if (typeof window !== 'undefined') {
+			window.addEventListener('load', async () => {
+				if (window.ethereum) {
+					await checkWalletConnectedOnLoad();
+					window.ethereum.on('accountsChanged', (accounts) => {
+						if (accounts && accounts.length > 0) {
+							currentAccount = accounts[0];
+							document.getElementById('walletStatus').innerText = 'Connected: ' + currentAccount;
+							document.getElementById('connectWalletBtn').innerText = 'Connected';
+							document.getElementById('connectWalletBtn').disabled = true;
+						} else {
+							currentAccount = null;
+							document.getElementById('walletStatus').innerText = 'Not connected';
+							document.getElementById('connectWalletBtn').innerText = 'Connect Wallet';
+							document.getElementById('connectWalletBtn').disabled = false;
+						}
+					});
+					window.ethereum.on('chainChanged', (chainId) => {
+						document.getElementById('networkStatus').innerText = 'Network ID: ' + Number(chainId);
+					});
+				}
+			});
+		}
+
          async function transfer() {
 
-        const accounts = await web3.eth.requestAccounts();
+		document.getElementById('errorMsg').innerText = '';
+		const payer = document.getElementById("payer").value.trim();
+		const payee = document.getElementById("payee").value.trim();
+		const amount = document.getElementById("amount").value;
 
+		// Basic validation
+		if (!web3.utils.isAddress(payer)) { document.getElementById('errorMsg').innerText = 'Invalid payer address'; return; }
+		if (!web3.utils.isAddress(payee)) { document.getElementById('errorMsg').innerText = 'Invalid payee address'; return; }
+		if (!amount || Number(amount) <= 0) { document.getElementById('errorMsg').innerText = 'Amount must be greater than 0'; return; }
 
+		try {
+			// Ensure wallet connected
+			let accounts = await web3.eth.getAccounts();
+			if (!accounts || accounts.length === 0) {
+				// try request
+				accounts = await web3.eth.requestAccounts();
+			}
+			if (!accounts || accounts.length === 0) {
+				document.getElementById('errorMsg').innerText = 'Please connect a wallet to send the transaction.';
+				return;
+			}
 
-        const payer = document.getElementById("payer").value;
+			const from = accounts[0];
+			// disable button while pending
+			const btn = document.getElementById('transferBtn');
+			btn.disabled = true;
+			document.getElementById('txStatusCard').style.display = 'block';
+			document.getElementById('txStatus').innerText = '⏳ Sending transaction...';
+			document.getElementById('txStatus').className = 'status-text pending';
+			document.getElementById('txHash').innerText = '';
 
-        const payee = document.getElementById("payee").value;
+			const tx = await contract.methods.transfer_money(payer, payee, amount).send({ from });
+			document.getElementById('txHash').innerText = tx.transactionHash || tx.tx || tx;
+			document.getElementById('txStatus').innerText = '✓ Transaction confirmed';
+			document.getElementById('txStatus').className = 'status-text success';
+			document.getElementById('txStatusCard').style.display = 'block';
+			btn.disabled = false;
+		} catch (err) {
+			document.getElementById('errorMsg').innerText = 'Transaction failed: ' + (err.message || err);
+			document.getElementById('txStatus').innerText = '';
+			document.getElementById('transferBtn').disabled = false;
+		}
 
-        const amount = document.getElementById("amount").value;
-
-        console.log(payer,payee,amount)
-
-        console.log(accounts[0]);
-
-
-
-        await contract.methods.transfer_money(payer,payee,amount).send({from:accounts[0]});
-
-      }
+	  }
         async function view_transaction() {
             result = await contract.methods.transfer_view().call();
             console.log(result[0], result[1], result[2]);
-            document.getElementById('view_payer').innerText = "Payer: " + result[0];
-            document.getElementById('view_payee').innerText = "Payee: " + result[1];
-            document.getElementById('view_amount').innerText = "Amount: " + result[2];
+            document.getElementById('view_payer').innerText = result[0];
+            document.getElementById('view_payee').innerText = result[1];
+            document.getElementById('view_amount').innerText = result[2];
+            document.getElementById('txResultCard').style.display = 'block';
         }
     </script>
     </div>
