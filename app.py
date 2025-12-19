@@ -5,7 +5,7 @@ import datetime
 app = Flask(__name__)
 
 def init_db():
-    """初始化数据库，创建 userlog 表（如果不存在）"""
+    """Initialize the database and create the userlog table if it doesn't exist."""
     conn = sqlite3.connect('user.db')
     c = conn.cursor()
     c.execute('''
@@ -24,7 +24,7 @@ def index():
 
 @app.route('/main', methods=["GET", "POST"])
 def main():
-    # 使用 POST 提交写入数据库，之后使用重定向避免重复提交（PRG）
+    # Use POST to write to the database, then redirect to avoid duplicate submissions (PRG)
     if request.method == 'POST':
         name = (request.form.get("q") or "").strip()
         if name:
@@ -35,10 +35,10 @@ def main():
             conn.commit()
             c.close()
             conn.close()
-        # 重定向到 GET /main，防止刷新重复提交
+        # Redirect to GET /main to prevent resubmission on refresh
         return redirect(url_for('main'))
 
-    # GET 请求渲染页面
+    # Render page for GET requests
     return render_template("main.html")
 
 @app.route('/paynow', methods=["POST"])
@@ -58,7 +58,7 @@ def userlog():
     c.close()
     conn.close()
 
-    # 将查询结果传给模板，模板负责展示
+    # Pass query results to the template for rendering
     return render_template("userlog.html", rows=rows)
 
 @app.route('/deleteuserlog', methods=["POST"])
@@ -72,5 +72,5 @@ def deleteuserlog():
     return render_template("deleteuserlog.html")
 
 if __name__ == '__main__':
-    init_db()  # 启动前初始化数据库
+    init_db()  # Initialize database before starting
     app.run()

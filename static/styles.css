@@ -78,7 +78,7 @@ p {
     color: #007bff;
 }
 
-/* 为模板中的链接按钮提供样式（用于 .btn 类的 <a> 元素） */
+/* Styles for link buttons used as `.btn` on <a> elements in templates */
 a.btn {
     display: inline-block;
     background-color: #007bff;
@@ -97,7 +97,7 @@ a.btn:hover {
     background-color: #0056b3;
 }
 
-/* submit 按钮 hover 效果 */
+/* Hover effect for submit button */
 input[type="submit"]:hover {
     background-color: #0056b3;
 }
